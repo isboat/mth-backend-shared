@@ -1,0 +1,160 @@
+name: Build and Publish to GitHub Packages
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PACKAGE_NAME: MemeTokenHub.Shared
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/MemeTokenHub.Shared.csproj
+
+      - name: Build
+        run: dotnet build src/MemeTokenHub.Shared.csproj --configuration Release --no-restore
+
+      - name: Run tests
+        run: |
+          if [ -d "tests" ]; then
+            dotnet test tests/ --configuration Release --no-build --verbosity normal;
+          else
+            echo "No test project found. Skipping tests.";
+          fi
+        shell: bash
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION="${{ github.run_number }}"
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            PRERELEASE=""
+          else
+            PRERELEASE="-preview"
+          fi
+          FULL_VERSION="1.0.${VERSION}${PRERELEASE}"
+          echo "VERSION=${FULL_VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${FULL_VERSION}"
+
+      - name: Pack NuGet package
+        run: dotnet pack src/MemeTokenHub.Shared.csproj --configuration Release --no-build --output nupkg --version-suffix="" -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: Push to GitHub Packages
+        if: github.event_name == 'push'
+        run: dotnet nuget push nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: nupkg/
+          retention-days: 30
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/MemeTokenHub.Shared.csproj
+
+      - name: Build
+        run: dotnet build src/MemeTokenHub.Shared.csproj --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: |
+          if [ -d "tests" ]; then
+            dotnet test tests/ --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx";
+          else
+            echo "No test project found. Skipping tests.";
+          fi
+        shell: bash
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/test-results.trx"
+          retention-days: 30
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: nupkg/
+
+      - name: Publish to GitHub Packages
+        run: dotnet nuget push nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: nupkg/*.nupkg
+          tag_name: v1.0.${{ github.run_number }}
+          body: |
+            ## MemeTokenHub.Shared Package Release
+            
+            Version: 1.0.${{ github.run_number }}
+            
+            ### Changes
+            - Build triggered by commit: ${{ github.sha }}
+            - Released from branch: ${{ github.ref_name }}
+            
+            ### Download
+            The NuGet package is available at GitHub Packages.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
