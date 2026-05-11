@@ -60,7 +60,7 @@ jobs:
           echo "Generated version: ${FULL_VERSION}"
 
       - name: Pack NuGet package
-        run: dotnet pack src/MemeTokenHub.Shared.csproj --configuration Release --no-build --output nupkg --version-suffix="" -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+        run: dotnet pack src/MemeTokenHub.Shared.csproj --configuration Release --no-build --output nupkg -p:PackageVersion=${{ steps.version.outputs.VERSION }}
 
       - name: Push to GitHub Packages
         if: github.event_name == 'push'
