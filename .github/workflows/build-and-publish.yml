@@ -49,7 +49,7 @@ jobs:
       - name: Generate version
         id: version
         run: |
-          VERSION="${{ github.run_number }}"
+          VERSION="${{ github.run_id }}"
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             PRERELEASE=""
           else
