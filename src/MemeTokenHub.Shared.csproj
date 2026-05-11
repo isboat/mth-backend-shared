@@ -13,7 +13,6 @@
     <Authors>MemeTokenHub Team</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/${{ GITHUB_REPOSITORY }}</PackageProjectUrl>
-    <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/${{ GITHUB_REPOSITORY }}</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>meme;token;hub;shared;microservices;dto;jwt;mongodb</PackageTags>
