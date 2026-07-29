@@ -4,7 +4,7 @@
 
 Shared library for MemeTokenHub backend microservices. This NuGet package contains reusable components across all services including DTOs, exception handling, JWT utilities, MongoDB base repository, and configuration helpers.
 
-## Package Information
+## Package Information.
 
 - **NuGet Package**: `MemeTokenHub.Shared`
 - **Source**: GitHub Packages
